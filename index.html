@@ -1,0 +1,27 @@
+<html>
+  <head>
+    <script>
+      const handleImageUpload = (event) => {
+        const file = event.target.files[0];
+        if (file == null) return;
+
+        fetch('/fileUpload', {
+          headers: { filename: file.name },
+          method: 'POST',
+          body: file,
+        })
+          .then((response) => response.json())
+          .then((data) => console.log(data))
+          .catch((error) => console.error(error));
+      };
+
+      function init() {
+        document.getElementById('fileUpload').addEventListener('change', handleImageUpload);
+      }
+    </script>
+  </head>
+  <body onload="init()">
+    <input type="file" id="fileUpload" />
+  </body>
+</html>
+
