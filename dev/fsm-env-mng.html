@@ -1,0 +1,126 @@
+<div>
+  <span>Context: <span id="context"></span></span>
+  <br />
+  <span>State: <span id="state"></span></span>
+</div>
+
+<button id="enableLayer">Enable Layer</button>
+<button id="disableLayer">Disable Layer</button>
+<button id="switchMode">Switch Mode</button>
+<button id="resizeCanvas">Resize Canvas</button>
+<script>
+  const CANVAS_ACTIONS = {
+  ENABLE_LAYER: 'enableLayer',
+  DISABLE_LAYER: 'disableLayer',
+  SWITCH_MODE: 'switchMode',
+  RESIZE_CANVAS: 'resizeCanvas',
+};
+
+const CANVAS_STATES = {
+  IDLE: 'idle',
+  EDITING: 'editing',
+  RENDERING: 'rendering',
+};
+
+const canvasStateChart = {
+  initial: CANVAS_STATES.IDLE,
+  context: {
+    activeLayer: null,
+    layers: ['ui-layer', 'game-layer', 'background-layer'],
+    mode: '2d', // Rendering mode: '2d' or '3d'
+    width: 800,
+    height: 600,
+  },
+  states: {
+    [CANVAS_STATES.IDLE]: {
+      actions: [CANVAS_ACTIONS.ENABLE_LAYER, CANVAS_ACTIONS.RESIZE_CANVAS],
+    },
+    [CANVAS_STATES.EDITING]: {
+      actions: [CANVAS_ACTIONS.SWITCH_MODE, CANVAS_ACTIONS.DISABLE_LAYER],
+    },
+    [CANVAS_STATES.RENDERING]: {
+      actions: [CANVAS_ACTIONS.RESIZE_CANVAS, CANVAS_ACTIONS.SWITCH_MODE],
+    },
+  },
+};
+
+
+class userStateMachine {
+  constructor(stateChart) {
+    this.stateChart = stateChart;
+    this.current = null;
+    this.setState(stateChart.initial);
+  }
+
+  setState(state) {
+    const newState = state.startsWith('.') ? state.substring(1) : state;
+    const states = this.current?.states || this.stateChart.states;
+    const stateConfig = states[newState];
+
+    if (!stateConfig) {
+      throw new Error(`Unknown state: ${state}`);
+    }
+
+    this.current = { name: newState, ...stateConfig };
+  }
+
+  getState() {
+    return this.current;
+  }
+
+  send(data) {
+    Object.assign(this.stateChart.context, data);
+  }
+
+  get context() {
+    return this.stateChart.context;
+  }
+}
+
+const sm = new userStateMachine(canvasStateChart);
+
+function setupCanvasFSM(sm) {
+  const contextSpan = document.querySelector('#context');
+  const stateSpan = document.querySelector('#state');
+
+  // Update UI
+  const updateUI = () => {
+    contextSpan.innerHTML = JSON.stringify(sm.context);
+    stateSpan.innerHTML = sm.getState().name;
+  };
+
+  updateUI();
+
+  // Buttons and actions
+  const enableLayerButton = document.querySelector('#enableLayer');
+  enableLayerButton.addEventListener('click', () => {
+    sm.send({ activeLayer: 'ui-layer' });
+    updateUI();
+  });
+
+  const disableLayerButton = document.querySelector('#disableLayer');
+  disableLayerButton.addEventListener('click', () => {
+    sm.send({ activeLayer: null });
+    updateUI();
+  });
+
+  const switchModeButton = document.querySelector('#switchMode');
+  switchModeButton.addEventListener('click', () => {
+    const newMode = sm.context.mode === '2d' ? '3d' : '2d';
+    sm.send({ mode: newMode });
+    updateUI();
+  });
+
+  const resizeCanvasButton = document.querySelector('#resizeCanvas');
+  resizeCanvasButton.addEventListener('click', () => {
+    const newWidth = Math.random() * 800 + 200; // Random width for demo
+    const newHeight = Math.random() * 600 + 200; // Random height for demo
+    sm.send({ width: newWidth, height: newHeight });
+    updateUI();
+  });
+}
+
+// Initialize FSM for canvas
+setupCanvasFSM(sm);
+
+</script>

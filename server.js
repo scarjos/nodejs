@@ -1,4 +1,6 @@
+const PORT = 3000;
 const PATH = {
+  dirnam: './'
   upload: './uploads',
   logs: './logs',
 };
@@ -12,23 +14,39 @@ const FILE = {
   },
 };
 
+const types = {
+  html: 'text/html',
+  css: 'text/css',
+  js: 'application/javascript',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  json: 'application/json',
+  xml: 'application/xml',
+  txt: 'text/plain',
+};
+
+/*
+const flag_states 
+  a: req.url === '/'
+  b: !extension
+  c: !isPathUnderRoot
+*/
 import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+const root = normalize(resolve(directoryName));
 // Formatters
 const [
-  jsonFormatter,
-  textFormatter,
-  htmlFormatter,
+  jsonForm,
+  textForm,
+  htmlForm,
 ] = [
   (data) => JSON.stringify(data),
-  (message) => message,
-  (message) => `
-    <!DOCTYPE html>
-    <html><head><title>Response</title></head>
-    <body><h1>${message}</h1></body></html>
-  `,
+  (msg) => msg,
+  (msg) => `<!DOCTYPE html><html><body><h1>${msg}</h1></body></html>`,
 ];
 
 // Dynamic Send Functions
@@ -39,9 +57,9 @@ const sendRes = (...types) =>
   });
 
 const [sendJSON, sendHTML, sendText] = sendRes(
-  ['application/json', jsonFormatter],
-  ['text/html', htmlFormatter],
-  ['text/plain', textFormatter]
+  ['application/json', jsonForm],
+  ['text/html', htmlForm],
+  ['text/plain', textForm]
 );
 
 // Utility for Event Responses
@@ -56,25 +74,42 @@ const sendFile = (res, filePath, status = 200) => {
   const stream = fs.createReadStream(path.resolve(filePath));
   res.writeHead(status, { 'Content-Type': 'text/html' });
   handleStreamEvents(stream, {
-    error: { res, status: 500, payload: { status: 'error', description: 'File not found' } },
-  });
+    error: { res, 
+      status: 500, 
+      payload: { status: 'error', description: 'File not found' }}});
   stream.pipe(res);
 };
 
+/* 
+const dir_act = {
+  asyncDir = dir => access(dir).then(() => undefined).catch(() => mkdir(dir));
+  synchDir = dir => !existsSync(dir) ? mkdirSync(dir) : undefined;
+}
+*/
 // File Upload Function
 const handleFileUpload = (req, res) => {
-  const uploadDir = './uploads';
-  fs.mkdirSync(uploadDir, { recursive: true });
-
+  fs.mkdirSync(PATH.upload, { recursive: true });
   const filename = req.headers['filename'] || `file-${Date.now()}`;
-  const fileStream = fs.createWriteStream(path.join(uploadDir, filename));
+  const fileStream = fs.createWriteStream(path.join(PATH.upload, filename));
 
   handleStreamEvents(fileStream, {
-    error: { res, status: 500, payload: { status: 'error', description: 'File upload failed' } },
-    finish: { res, status: 200, payload: { status: 'success', filename } },
-  });
+    error: { res, status: 500, 
+      payload: { status: 'error', description: 'File upload failed' }}, 
+    finish: { res, status: 200, 
+      payload: { status: 'success', filename }}});
 
   req.pipe(fileStream);
+};
+// Higher order 
+const createHandler = 
+  (passFn) => 
+  (res, payload, status = 200) => 
+  passFn(res, status, payload);
+
+const io= {
+  io1: (sendF) => (res, payload, status = 200) => sendF(res, status, payload),
+  io2: (res, filePath, status = 200) => sendFile(res, filePath, status),
+  io3: (req, res) => handleFileUpload(req, res),
 };
 
 // Handlers
@@ -113,7 +148,6 @@ const defaultHandler = (req, res) => {
 const routes = buildRoutes(routeConfig, defaultHandler);
 
 // HTTP Server
-const PORT = 3000;
 http
   .createServer((req, res) => {
     const { method, url } = req;
